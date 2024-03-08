@@ -1,0 +1,101 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'TMCO Link upload from E2
+'Can run from any hook
+
+V.Local.linkpath.Declare(String)
+V.Local.FileLoc.Declare(String)
+V.Local.Filename.Declare(String)
+V.Local.Fileload.Declare(String)
+V.Local.sCell.Declare(String)
+V.Local.sCell3.Declare(String)
+V.Local.sCell2.Declare(String)
+V.Local.row.Declare(Long)
+V.Local.rowt.Declare(Long)
+V.Local.sSQL.Declare(String)
+V.Local.log.Declare(String)
+V.Local.part.Declare(String)
+
+'Open Global Link MDB
+F.Intrinsic.String.Concat(V.Caller.PluginsDir,"\HTM\","HLINK.MDB",V.Local.linkpath)
+F.ODBC.Connection!connMDB.OpenMDBConnection(V.Local.linkpath)
+
+F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+Function.Intrinsic.UI.ShowOpenFileDialog("","*.xls","C:\",Variable.local.FileLoc)
+
+'Open Excel File
+F.Automation.OOGeneral.CreateContainer("OOContainer")
+F.Automation.OOGeneral.CreateAppObject("OOContainer","OOApp")
+F.Automation.OOCalc.OpenWorkbook("OOContainer","OOApp","CalcImport",V.Local.FileLoc)
+F.Automation.OOCalc.OpenWorksheet("CalcImport","CalcWS",0)
+
+'F.ODBC.Connection!connMDB.OpenRecordsetRW("rstHLINK","Select * from LinkData")
+V.Local.row.Set(1)
+F.Automation.OOCalc.ReadCell("CalcWS",1,0,V.Local.sCell)
+F.Intrinsic.Control.DoUntil(V.Local.sCell.Trim,=,"")
+	F.Intrinsic.String.Replace(V.Local.sCell,"'","''",V.Local.sCell)
+	F.Intrinsic.String.Concat("Select * from LinkData where LinkRef='",V.Local.sCell,"' and LinkType='35' ",V.Local.sSQL)
+	F.ODBC.Connection!connMDB.OpenRecordsetRW("rstHLINK",V.Local.sSQL)
+	F.Intrinsic.Control.If(V.ODBC.connMDB!rstHLINK.EOF,=,True)
+		F.ODBC.connMDB!rstHLINK.AddNew
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.String.RPad(V.Local.sCell," ",16,V.Local.sCell)
+	F.Intrinsic.String.Concat("Select * from V_ROUTER_HEADER where ROUTER like '",V.Local.sCell,"___'",V.Local.sSQL)
+	F.ODBC.Connection!conx.OpenRecordsetRO("rstPart",V.Local.sSQL)
+	F.Automation.OOCalc.ReadCell("CalcWS",V.Local.row,0,V.Local.sCell)
+	F.Intrinsic.Control.If(V.ODBC.conx!rstPart.EOF,=,False)
+		V.Local.sCell.Set(V.ODBC.conx!rstPart.FieldValTrim!ROUTER)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.Concat(V.Local.log,V.Local.sCell," NOT FOUND",V.Ambient.NewLine,V.Local.log)
+	F.Intrinsic.Control.EndIf
+	F.ODBC.conx!rstPart.Close
+	V.Local.part.Set(V.Local.sCell)
+	F.ODBC.connMDB!rstHLINK.Set!LinkRef(V.Local.scell)
+	F.ODBC.connMDB!rstHLINK.Set!LinkType("35")
+	F.ODBC.connMDB!rstHLINK.Set!LinkCompany(V.Caller.CompanyCode)
+	F.Intrinsic.String.Replace(V.Local.sCell,"?","Q",V.Local.sCell)
+	F.Intrinsic.String.Replace(V.Local.sCell,"/","S",V.Local.sCell)
+
+	F.Intrinsic.String.Concat(V.Caller.CompanyCode,"35",V.Local.sCell,".htm",V.Local.Filename)
+	F.Intrinsic.String.Concat(V.Caller.PluginsDir,"\HTM\",V.Local.Filename,V.Local.FileLoc)
+
+	F.Automation.OOCalc.ReadCell("CalcWS",V.Local.row,1,V.Local.sCell)
+	F.ODBC.connMDB!rstHLINK.Set!LinkURL(V.Local.FileLoc)
+	F.ODBC.connMDB!rstHLINK.Update
+
+	F.Intrinsic.String.Concat("<center><h3>Router / Estimate Master Link Information</h3>",V.Ambient.NewLine,"<hr><h2>",V.Local.part,"<br><hr></h2>",V.Ambient.NewLine,V.Local.fileload)
+	V.Local.sCell3.Set(V.Local.sCell)
+	F.Intrinsic.String.Replace(V.Local.sCell3," ","%20",V.Local.sCell3)
+	F.Intrinsic.String.Concat(V.local.Fileload,"<a href=file:///",V.Local.sCell3,">",V.Local.sCell,"</a><br>",V.Ambient.NewLine,V.Local.Fileload)
+	F.Intrinsic.Math.Add(V.Local.row,1,V.Local.rowt)
+	F.Automation.OOCalc.ReadCell("CalcWS",V.Local.row,0,V.Local.sCell)
+	F.Automation.OOCalc.ReadCell("CalcWS",V.Local.rowt,0,V.Local.sCell2)
+
+	F.Intrinsic.Control.DoUntil(V.Local.sCell,<>,V.Local.sCell2)
+		F.Automation.OOCalc.ReadCell("CalcWS",V.Local.rowt,1,V.Local.sCell2)
+		V.Local.sCell3.Set(V.Local.sCell2)
+		F.Intrinsic.String.Replace(V.Local.sCell3," ","%20",V.Local.sCell3)
+		F.Intrinsic.String.Concat(V.local.Fileload,"<a href=file:///",V.Local.sCell3,">",V.Local.sCell2,"</a><br>",V.Ambient.NewLine,V.Local.Fileload)
+		F.Intrinsic.Math.Add(V.local.rowt,1,V.local.rowt)
+		F.Automation.OOCalc.ReadCell("CalcWS",V.Local.rowt,0,V.Local.sCell2)
+		V.Local.row.Set(V.Local.rowt)
+		F.Intrinsic.Math.sub(V.local.row,1,V.local.row)
+	F.Intrinsic.Control.Loop
+	F.Intrinsic.File.String2File(V.local.fileloc,V.Local.Fileload)
+	F.Intrinsic.Math.Add(V.Local.row,1,V.Local.row)
+	F.Automation.OOCalc.ReadCell("CalcWS",V.Local.row,0,V.Local.sCell)
+	F.ODBC.connMDB!rstHLINK.Close
+F.Intrinsic.Control.Loop
+
+F.Intrinsic.UI.Msgbox(V.Local.log,"Parts not found.")
+
+Program.Sub.Main.End
+
+
